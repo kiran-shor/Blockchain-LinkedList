@@ -1,12 +1,11 @@
 #include <iostream>
-#include <vector>
-#include <ctime>        // for timestamp
-#include <limits>       // for numeric_limits
+#include <ctime>
+#include <limits>
 #include "sha256.h"
 
 using namespace std;
 
-// Block class
+// Block (Node of Linked List)
 class Block {
 public:
     int index;
@@ -15,31 +14,28 @@ public:
     string hash;
     int nonce;
     string timestamp;
+    Block* next;   // pointer to next block
 
-    // Constructor
     Block(int i, string d, string prev) {
         index = i;
         data = d;
         prevHash = prev;
         nonce = 0;
-        timestamp = getTime();   // set timestamp
+        timestamp = getTime();
+        next = NULL;
         mineBlock();
     }
 
-    // Get current time
     string getTime() {
         time_t now = time(0);
-        char* dt = ctime(&now);
-        return string(dt);
+        return string(ctime(&now));
     }
 
-    // Hash calculation
     string calculateHash() {
         string input = to_string(index) + data + prevHash + timestamp + to_string(nonce);
         return sha256(input);
     }
 
-    // Mining
     void mineBlock() {
         string target = "000";
 
@@ -52,56 +48,66 @@ public:
     }
 };
 
-// Blockchain class
+// Blockchain using Linked List
 class Blockchain {
 private:
-    vector<Block> chain;
+    Block* head;
+    Block* tail;
 
 public:
     Blockchain() {
-        chain.push_back(Block(0, "Genesis Block", "0"));
+        head = new Block(0, "Genesis Block", "0");
+        tail = head;
     }
 
     void addBlock(string data) {
-        Block prev = chain.back();
-        Block newBlock(chain.size(), data, prev.hash);
-        chain.push_back(newBlock);
+        Block* newBlock = new Block(tail->index + 1, data, tail->hash);
+        tail->next = newBlock;
+        tail = newBlock;
     }
 
     void printChain() {
-        for (auto &b : chain) {
-            cout << "\nIndex: " << b.index << endl;
-            cout << "Timestamp: " << b.timestamp;
-            cout << "Data: " << b.data << endl;
-            cout << "Prev Hash: " << b.prevHash << endl;
-            cout << "Hash: " << b.hash << endl;
-            cout << "Nonce: " << b.nonce << endl;
+        Block* temp = head;
+        while (temp != NULL) {
+            cout << "\nIndex: " << temp->index << endl;
+            cout << "Timestamp: " << temp->timestamp;
+            cout << "Data: " << temp->data << endl;
+            cout << "Prev Hash: " << temp->prevHash << endl;
+            cout << "Hash: " << temp->hash << endl;
+            cout << "Nonce: " << temp->nonce << endl;
             cout << "----------------------\n";
+            temp = temp->next;
         }
     }
 
     bool isValid() {
-        for (int i = 1; i < chain.size(); i++) {
-            if (chain[i].prevHash != chain[i-1].hash)
+        Block* temp = head;
+
+        while (temp->next != NULL) {
+            if (temp->next->prevHash != temp->hash)
                 return false;
 
-            if (chain[i].hash != chain[i].calculateHash())
+            if (temp->next->hash != temp->next->calculateHash())
                 return false;
+
+            temp = temp->next;
         }
         return true;
     }
 
     void tamperBlock(int index, string newData) {
-        if (index >= 0 && index < chain.size()) {
-            chain[index].data = newData;
-            cout << "⚠️ Block tampered!\n";
-        } else {
-            cout << "❌ Invalid index!\n";
-        }
-    }
+        Block* temp = head;
 
-    int getSize() {
-        return chain.size();
+        while (temp != NULL) {
+            if (temp->index == index) {
+                temp->data = newData;
+                cout << "⚠️ Block tampered!\n";
+                return;
+            }
+            temp = temp->next;
+        }
+
+        cout << "❌ Invalid index!\n";
     }
 };
 
@@ -121,11 +127,11 @@ int main() {
         cout << "5. Exit\n";
         cout << "Enter choice: ";
 
-        if (!(cin >> choice)) { // Check for non-integer input
-            cin.clear();          
-            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // discard invalid input
+        if (!(cin >> choice)) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
             cout << "❌ Invalid input! Please enter a number between 1-5.\n";
-            continue; 
+            continue;
         }
 
         switch (choice) {
